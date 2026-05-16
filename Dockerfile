@@ -1,29 +1,25 @@
-# ---------- build stage ----------
-FROM golang:1.22-alpine AS builder
+# Build stage
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 
-# Копіюємо go.mod і go.sum окремо (кешування залежностей)
 COPY go.mod go.sum ./
+
 RUN go mod download
 
-# Копіюємо весь код
 COPY . .
 
-# Збираємо бінарник
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -o tbot -ldflags="-s -w -X my-telegram-bot/cmd.appVersion=dev" ./cmd
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o telebot .
 
-# ---------- runtime stage ----------
-FROM alpine:latest
+# Runtime stage
+FROM alpine:3.22
 
-WORKDIR /app
+WORKDIR /root/
 
-# Копіюємо тільки бінарник
-COPY --from=builder /app/tbot .
+COPY --from=builder /app/telebot .
 
-# (опційно) сертифікати для HTTPS
-RUN apk add --no-cache ca-certificates
+RUN adduser -D appuser
 
-# Запуск
-CMD ["./tbot"]
+USER appuser
+
+CMD ["./telebot"]
